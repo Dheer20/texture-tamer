@@ -1,0 +1,10 @@
+# Local only
+dist/
+__pycache__/
+tests/data/
+tests/renders/
+tests/_blender_user/
+tests/last_run.txt
+tests/ui_run.txt
+TEST_REPORT.md
+MAPPING_PROPOSAL.md

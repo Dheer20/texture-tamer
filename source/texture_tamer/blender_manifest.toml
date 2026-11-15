@@ -1,0 +1,16 @@
+schema_version = "1.0.0"
+
+id = "texture_tamer"
+version = "1.3.0"
+name = "Texture Tamer"
+tagline = "Turns any PBR texture download into a ready material"
+maintainer = "Dheer"
+type = "add-on"
+
+blender_version_min = "5.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+tags = ["Material", "Node"]
+
+[permissions]
+files = "Read texture images and unpack texture zip files"
