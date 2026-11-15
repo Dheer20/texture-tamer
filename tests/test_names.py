@@ -57,4 +57,12 @@ for name, want in CASES.items():
         bad += 1
         print("FAIL %-45s want %-11s got %s" % (name, want, got))
 print("%d/%d names recognised correctly" % (len(CASES) - bad, len(CASES)))
+# A set with both a roughness and a gloss map: only one may feed Roughness.
+items = {os.path.basename(i["path"]): i["type"] for i in
+         detect.detect_files(["x/Rock_Roughness.png", "x/Rock_Gloss.png", "x/Rock_Color.png"])}
+if items != {"Rock_Roughness.png": "ROUGHNESS", "Rock_Gloss.png": "IGNORE", "Rock_Color.png": "BASE_COLOR"}:
+    bad += 1
+    print("FAIL roughness + gloss in one set:", items)
+else:
+    print("roughness + gloss in one set: gloss left unused")
 sys.exit(1 if bad else 0)

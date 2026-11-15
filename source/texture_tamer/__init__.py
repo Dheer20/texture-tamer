@@ -48,6 +48,24 @@ def _on_type_change(self, context):
         build.build(mat)  # correcting a guess after applying: rebuild at once
 
 
+def _on_map_type(self, context):
+    """Same rule in every layout and in the check-first list: one file per channel.
+    Giving a file a type takes that channel over; the old file becomes unused."""
+    idb = self.id_data
+    coll = None
+    if isinstance(idb, bpy.types.Material):
+        coll = idb.pbrqa.maps
+    elif isinstance(idb, bpy.types.Scene):
+        coll = idb.pbrqa_pending.maps
+    ch = _channel_of(self.map_type)
+    if coll is not None and ch:
+        me = self.as_pointer()
+        for other in coll:
+            if other.as_pointer() != me and _channel_of(other.map_type) == ch:
+                other["map_type"] = detect.MAP_IDS.index("IGNORE")
+    _on_type_change(self, context)
+
+
 def _on_value(self, context):
     mat = self.id_data
     if isinstance(mat, bpy.types.Material) and mat.pbrqa.managed:
@@ -75,8 +93,9 @@ class PBRQA_MapItem(bpy.types.PropertyGroup):
         update=_on_type_change)
     map_type: EnumProperty(
         name="Map Type", items=detect.MAP_TYPES, default="IGNORE",
-        description="What this image is used for. Change it if the guess is wrong",
-        update=_on_type_change)
+        description="What this image is used for. Change it if the guess is wrong "
+        "(the file that had this job before becomes unused)",
+        update=_on_map_type)
     guess: StringProperty(name="Guess")
 
     def label_for_node(self):
@@ -747,12 +766,11 @@ class PBRQA_OT_add_map(_MatOp, bpy.types.Operator):
         row["map_type"] = detect.MAP_IDS.index(t)
         row.filepath = self.filepath
         row.guess = t
-        # A new map of a type already in use takes over that slot.
-        slot = "NORMAL" if t in ("NORMAL_GL", "NORMAL_DX") else t
-        if t != "IGNORE":
+        # A new map of a type already in use takes over that channel.
+        ch = _channel_of(t)
+        if ch:
             for other in s.maps[:-1]:
-                o = "NORMAL" if other.map_type in ("NORMAL_GL", "NORMAL_DX") else other.map_type
-                if o == slot:
+                if _channel_of(other.map_type) == ch:
                     other["map_type"] = detect.MAP_IDS.index("IGNORE")
         s.index = len(s.maps) - 1
         build.build(mat)
@@ -798,14 +816,28 @@ CHANNELS = [  # (id, label, map types that feed it; the first is the default)
 CHANNEL_TYPES = {c[0]: c[2] for c in CHANNELS}
 
 
+def _channel_of(map_type):
+    """Channel id a map type belongs to (Gloss counts as Roughness), or None."""
+    for ch, _label, types in CHANNELS:
+        if map_type in types:
+            return ch
+    return None
+
+
 def _channel_owner(s, ch):
-    """(index, item) that feeds this channel, preferring maps in use."""
-    types = CHANNEL_TYPES[ch]
-    found = [(i, it) for i, it in enumerate(s.maps) if it.map_type in types]
-    if not found:
-        return None
-    found.sort(key=lambda p: (not p[1].enabled, types.index(p[1].map_type)))
-    return found[0]
+    """(index, item) shown for this channel: exactly the file the material uses
+    (same rule as the build); if none is in use, the first unticked or missing one."""
+    chosen = build.chosen_maps(s)
+    if ch == "ROUGHNESS":  # the build wires Roughness first, Gloss otherwise
+        own = chosen.get("ROUGHNESS") or chosen.get("GLOSS")
+    else:
+        own = chosen.get(build.slot_of(CHANNEL_TYPES[ch][0]))
+    if own:
+        return own
+    for i, it in enumerate(s.maps):
+        if it.map_type in CHANNEL_TYPES[ch]:
+            return i, it
+    return None
 
 
 def _assign(s, index, ch):
@@ -1351,6 +1383,23 @@ def _turn_slide(layout, s):
         _note(layout, "Box/World: turning shows on floors only")
 
 
+def _hidden_summary(s, projection=True):
+    """Short note of changed settings inside a folded section, e.g. 'World, 90°'."""
+    parts = []
+    if projection and s.projection != "UV":
+        parts.append({"BOX": "Box", "WORLD": "World"}[s.projection])
+    deg = round(math.degrees(s.rotation)) % 360
+    if deg:
+        parts.append("%d\u00b0" % deg)
+    if s.offset_x or s.offset_y:
+        parts.append("Offset")
+    return ", ".join(parts)
+
+
+def _fold_title(text, summary):
+    return "%s: %s" % (text, summary) if summary else text
+
+
 def _fit_reset(layout, reset=True):
     r = layout.row(align=True)
     r.operator(PBRQA_OT_fit.bl_idname)
@@ -1378,7 +1427,7 @@ def _draw_place(self, context):
                         text="Show 1 m Grid" if s.check_grid == "METRES" else "Show Tile Grid")
         _fit_reset(layout)
         header, body = layout.panel("pbrqa_more", default_closed=True)
-        header.label(text="More")
+        header.label(text=_fold_title("More", _hidden_summary(s)))
         if body is not None:
             _projection_row(body, s, ob)
             _row(body, "Grid").prop(s, "check_grid", expand=True)
@@ -1388,7 +1437,7 @@ def _draw_place(self, context):
         _size_rows(layout, s, ob, mat)
         _fit_reset(layout, reset=False)
         header, body = layout.panel("pbrqa_turn_slide", default_closed=True)
-        header.label(text="Rotation & Offset")
+        header.label(text=_fold_title("Rotation & Offset", _hidden_summary(s, False)))
         if body is not None:
             _row(body, "Grid").prop(s, "check_grid", expand=True)
             _turn_slide(body, s)
@@ -1398,7 +1447,7 @@ def _draw_place(self, context):
         _row(layout, "Check Size").prop(s, "check_grid", expand=True)
         _fit_reset(layout)
         header, body = layout.panel("pbrqa_turn_slide", default_closed=True)
-        header.label(text="Rotation & Offset")
+        header.label(text=_fold_title("Rotation & Offset", _hidden_summary(s, False)))
         if body is not None:
             _turn_slide(body, s)
 

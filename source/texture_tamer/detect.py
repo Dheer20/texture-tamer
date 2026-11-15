@@ -155,7 +155,7 @@ _FORMAT_RANK = {".exr": 5, ".tif": 4, ".tiff": 4, ".png": 3, ".tga": 2,
                 ".webp": 1, ".bmp": 1, ".jpg": 0, ".jpeg": 0}
 
 # Which slot a type fills (both normal forms fill one slot).
-SLOT = {"NORMAL_GL": "NORMAL", "NORMAL_DX": "NORMAL"}
+SLOT = {"NORMAL_GL": "NORMAL", "NORMAL_DX": "NORMAL", "GLOSS": "ROUGHNESS"}
 
 
 def detect_files(paths, prefer_key=None):
@@ -189,6 +189,7 @@ def detect_files(paths, prefer_key=None):
             size = 0
         return (it["key"] == main,
                 it["type"] != "NORMAL_DX",
+                it["type"] != "GLOSS",
                 resolution_hint(p),
                 _FORMAT_RANK.get(os.path.splitext(p)[1].lower(), 0),
                 size)

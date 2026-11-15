@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1
+- One rule in every Maps layout: each material input takes one file. Giving a file a
+  type (in any layout, or in the check-first list) takes that job over; the previous
+  file becomes unused. A set with both a roughness and a gloss map uses the roughness.
+- By Channel always shows the file the material really uses (also for older materials).
+- Folded sections name changed settings they hide, e.g. "More: World, 90°".
+
 ## 1.3.0
 - Layout choices in Preferences (gear icon in the panel header):
   Maps as **By Channel** (default), Quiet List, Picture Grid or Full List;

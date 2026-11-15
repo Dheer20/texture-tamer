@@ -429,6 +429,31 @@ check("O Show Tile Grid button on/off", on and s.check_grid == "OFF")
 bpy.ops.pbrqa.select_map(index=2)
 check("O picture-grid select", s.index == 2)
 
+# P. 1.3.1: one rule for every layout.
+ob = fresh_plane()
+run(directory=DATA + "/carpet_messy/")
+m = ob.active_material
+s = m.pbrqa
+old_base = ext._channel_owner(s, "BASE_COLOR")[0]
+prev = [i for i, it in enumerate(s.maps) if it.filepath.endswith("carpet_preview.jpg")][0]
+s.maps[prev].map_type = "BASE_COLOR"  # what the list layouts do
+check("P list type change takes the channel over",
+      s.maps[old_base].map_type == "IGNORE" and sum(it.map_type == "BASE_COLOR" for it in s.maps) == 1
+      and node(m, "BASE_COLOR").image.filepath.endswith("carpet_preview.jpg"))
+# Old files may hold duplicates: the channel view must show the file the build uses.
+nrm = ext._channel_owner(s, "NORMAL")[0]
+s.maps[old_base]["map_type"] = ext.detect.MAP_IDS.index("NORMAL_GL")  # bypass the rule
+build.build(m)
+used = node(m, "NORMAL").image.filepath
+check("P channel view shows the file actually used",
+      s.maps[ext._channel_owner(s, "NORMAL")[0]].filepath.replace("\\", "/").endswith(
+          os.path.basename(used)), (used, ext._channel_owner(s, "NORMAL")[1].filepath))
+s.rotation = math.radians(90)
+s.projection = "WORLD"
+check("P folded section names hidden changes",
+      ext._hidden_summary(s) == "World, 90°" and ext._hidden_summary(s, False) == "90°",
+      ext._hidden_summary(s))
+
 # L. Material survives save + reload with its settings.
 for mm in bpy.data.materials:
     if mm.pbrqa.managed:

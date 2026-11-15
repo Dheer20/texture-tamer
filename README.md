@@ -43,7 +43,8 @@ One line per material input: tick box (use / skip), the input's name, the file f
 it (click to pick another file, choose **None**, or switch *Gloss ↔ Roughness* and
 *DirectX ↔ OpenGL* normal), and a star to **show only this map** on the object.
 **Add Map** fills an empty input; files not used sit under **Unused Files**, each with
-**Use As**.
+**Use As**. Every layout follows the same rule: one file per input, so giving a file a
+job makes the file that had it unused.
 
 ### Placement (default layout: Size First)
 - **Size**: real width of one repeat; the chain keeps the texture's shape (off = separate
@@ -52,7 +53,7 @@ it (click to pick another file, choose **None**, or switch *Gloss ↔ Roughness*
 - **"2.0 × 2.0 tiles fit"** on the selected object; the round arrow re-measures the UVs.
 - **Show Tile Grid**: blue/white squares, one per repeat. Switch it off before rendering.
 - **Fit to Object** (whole tiles across; change the count in Adjust Last Operation) and **Reset**.
-- **More**: Projection (*UV Map*, *Box* = no unwrap needed, *World* = continues across
+- **More** (its title lists anything changed inside, e.g. "More: World, 90°"): Projection (*UV Map*, *Box* = no unwrap needed, *World* = continues across
   objects), Off / Tiles / Metres grid, Rotation with quarter turns, Offset.
 
 ### Break Up Repeats

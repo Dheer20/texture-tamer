@@ -165,15 +165,26 @@ def _random_chains(nodes, links, s, mapping):
         link(add.outputs[0], mapping.inputs["Location"])
 
 
+def slot_of(map_type):
+    """Normal GL/DX share one slot; everything else is its own slot."""
+    return "NORMAL" if map_type in ("NORMAL_GL", "NORMAL_DX") else map_type
+
+
+def chosen_maps(s):
+    """{slot: (index, item)} actually used: the first ticked, existing file of each
+    slot, in list order. The panel shows exactly this, whatever the layout."""
+    chosen = {}
+    for i, it in enumerate(s.maps):
+        if (it.enabled and it.map_type != "IGNORE" and it.filepath
+                and os.path.isfile(it.filepath)):
+            chosen.setdefault(slot_of(it.map_type), (i, it))
+    return chosen
+
+
 def build(mat):
     """(Re)build mat's node tree from mat.pbrqa.maps and its settings."""
     s = mat.pbrqa
-    chosen = {}
-    for it in s.maps:
-        if (it.enabled and it.map_type != "IGNORE" and it.filepath
-                and os.path.isfile(it.filepath)):
-            slot = "NORMAL" if it.map_type in ("NORMAL_GL", "NORMAL_DX") else it.map_type
-            chosen.setdefault(slot, it)  # first one of a slot wins
+    chosen = {k: v[1] for k, v in chosen_maps(s).items()}
 
     nt = mat.node_tree
     nodes, links = nt.nodes, nt.links
