@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+- Sets with several emission maps (e.g. `x_emission`, `x_emission_all_on`, `x_emission_dim`):
+  the plain `x_emission` is used, not whichever file is biggest. The variants stay in the
+  list as unused files, so you can switch to one.
+- The set's JSON can give a starting **Emission Strength**: `"emission_strength_hint": 20`
+  (a number above 0). Without it the strength still starts at 1.
+
 ## 1.3.1
 - One rule in every Maps layout: each material input takes one file. Giving a file a
   type (in any layout, or in the check-first list) takes that job over; the previous

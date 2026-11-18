@@ -518,6 +518,49 @@ grid_case.pbrqa.check_grid = "OFF"
 grid_case.pbrqa.random_turn = True
 render(grid_case, "eevee_random_turn")
 
+# Several emission maps + emission_strength_hint (baked ceiling with lights):
+# the plain emission file is used and Emission Strength starts at the hint.
+import json
+import tempfile
+with tempfile.TemporaryDirectory() as tmp:
+    for n in ("basecolor", "normal_gl", "roughness", "emission", "emission_all_on",
+              "emission_some_off", "emission_dim", "emission_mask"):
+        im = bpy.data.images.new("tmp_" + n, 8 + (8 if n == "emission_all_on" else 0), 8)
+        im.filepath_raw = os.path.join(tmp, "ceil_lit_2k_%s.png" % n)
+        im.file_format = "PNG"
+        im.save()
+        bpy.data.images.remove(im)
+    with open(os.path.join(tmp, "ceil_lit_2k_info.json"), "w") as f:
+        json.dump({"tile_size_m": [4.8768, 4.8768], "emission_strength_hint": 20.0}, f)
+    folders = [("fake", tmp)]
+    real = SRC + "/ceiling_lit/default/2k"
+    if os.path.isdir(real):
+        folders.append(("real", real))
+    for label, folder in folders:
+        ob = fresh_plane()
+        run(directory=folder + "/")
+        em = ob.active_material
+        en = node(em, "EMISSION")
+        check("N %s ceiling: plain emission map used" % label,
+              en is not None and en.image is not None
+              and en.image.filepath.lower().endswith("_emission.png"),
+              en.image.filepath if en and en.image else "")
+        check("N %s ceiling: Emission Strength starts at the hint (20)" % label,
+              em.pbrqa.emission_strength == 20.0
+              and node(em, "BSDF").inputs["Emission Strength"].default_value == 20.0,
+              em.pbrqa.emission_strength)
+        others = [r.filepath for r in em.pbrqa.maps if r.filepath.lower().endswith(
+            ("_all_on.png", "_some_off.png", "_dim.png", "_mask.png"))]
+        check("N %s ceiling: other emission files stay listed (unused)" % label,
+              len(others) == 4 and all(r.map_type == "IGNORE" for r in em.pbrqa.maps
+                                       if r.filepath in others), len(others))
+    # A folder without the hint keeps the default of 1.
+    os.remove(os.path.join(tmp, "ceil_lit_2k_info.json"))
+    ob = fresh_plane()
+    run(directory=tmp + "/")
+    check("N no hint: Emission Strength stays 1",
+          ob.active_material.pbrqa.emission_strength == 1.0)
+
 # Reload the saved file last.
 bpy.ops.wm.open_mainfile(filepath=path)
 mats = [mm for mm in bpy.data.materials if mm.pbrqa.managed]

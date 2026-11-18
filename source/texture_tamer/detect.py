@@ -103,24 +103,40 @@ def classify(filename):
     map_type is one of MAP_IDS. set_key is the part of the name before the
     map word (used to tell two texture sets in one folder apart).
     """
+    return _classify(filename)[:2]
+
+
+def trailing_words(filename):
+    """Words after the map word, e.g. 'x_emission_all_on.png' -> ['all', 'on'].
+
+    Sizes ('2k'), side words of a normal ('gl') and other noise do not count.
+    Empty means the name ends with the map word: the plain version of the map.
+    """
     words = split_words(filename)
-    found, index = None, len(words)
+    end = _classify(filename)[2]
+    return [w for w in words[end:] if w not in NOISE and w not in _NORMAL_SIDE]
+
+
+def _classify(filename):
+    """(map_type, set_key, index just after the map word)."""
+    words = split_words(filename)
+    found, index, end = None, len(words), len(words)
     # Spelled-out packed maps: "OcclusionRoughnessMetallic", "AO_Rough_Metal".
     for i in range(len(words) - 2):
         if {_type_of_word(w) for w in words[i:i + 3]} == {"AO", "ROUGHNESS", "METALLIC"}:
             key = " ".join(w for w in words[:i] if w not in NOISE)
-            return "ARM", key
+            return "ARM", key, i + 3
     # Search from the end: the map word is nearly always the last real word.
     for i in range(len(words) - 1, -1, -1):
         w = words[i]
         if w in NOISE or w in _NORMAL_SIDE:
             continue
         if w in SKIP_WORDS:
-            found, index = "IGNORE", i
+            found, index, end = "IGNORE", i, i + 1
             break
         t = _type_of_word(w)
         if t:
-            found, index = t, i
+            found, index, end = t, i, i + 1
             # "ambient occlusion", "base color": step over the first word.
             if i > 0 and words[i - 1] in ("ambient", "base"):
                 index = i - 1
@@ -131,14 +147,14 @@ def classify(filename):
         glued = "".join(w for w in words if w not in NOISE)
         for w, t in _FALLBACK:
             if glued.endswith(w):
-                found, index = t, len(words)
+                found, index, end = t, len(words), len(words)
                 break
     if found is None:
         found = "IGNORE"
     if found == "NORMAL":
         found = "NORMAL_DX" if any(w in DX_WORDS for w in words) else "NORMAL_GL"
     key = " ".join(w for w in words[:index] if w not in NOISE)
-    return found, key
+    return found, key, end
 
 
 def resolution_hint(filename):
@@ -190,6 +206,8 @@ def detect_files(paths, prefer_key=None):
         return (it["key"] == main,
                 it["type"] != "NORMAL_DX",
                 it["type"] != "GLOSS",
+                # The plain map ("x_emission") beats a variant ("x_emission_dim").
+                not trailing_words(p),
                 resolution_hint(p),
                 _FORMAT_RANK.get(os.path.splitext(p)[1].lower(), 0),
                 size)
@@ -252,6 +270,31 @@ def find_info_size(folder):
                     return float(v[0]), float(v[1])
             except TypeError:
                 continue
+    return None
+
+
+def find_info_emission_strength(folder):
+    """Emission Strength the set recommends, from a small JSON file next to the
+    maps: {"emission_strength_hint": 20}. Returns a float > 0, or None."""
+    import json
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return None
+    for name in names:
+        if not name.lower().endswith(".json"):
+            continue
+        path = os.path.join(folder, name)
+        try:
+            if os.path.getsize(path) > 256 * 1024:
+                continue
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            continue
+        v = data.get("emission_strength_hint") if isinstance(data, dict) else None
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 < v < 1e6:
+            return float(v)
     return None
 
 

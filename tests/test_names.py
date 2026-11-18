@@ -65,4 +65,60 @@ if items != {"Rock_Roughness.png": "ROUGHNESS", "Rock_Gloss.png": "IGNORE", "Roc
     print("FAIL roughness + gloss in one set:", items)
 else:
     print("roughness + gloss in one set: gloss left unused")
+# Several emission maps in one set (baked ceiling with lights): the plain
+# "..._emission" is used, the variants stay in the list as unused, even when a
+# variant is the biggest file. The set's JSON gives the emission strength.
+import json
+import tempfile
+EM_NAMES = ["ceiling_lit_default_2k_" + n for n in (
+    "basecolor.png", "normal_gl.png", "roughness.png", "height16.png", "ao.png",
+    "emission.png", "emission_all_on.png", "emission_some_off.png",
+    "emission_dim.png", "emission_mask.png")]
+with tempfile.TemporaryDirectory() as tmp:
+    for n in EM_NAMES:
+        with open(os.path.join(tmp, n), "wb") as f:
+            f.write(b"x" * (900 if "all_on" in n else 100))   # variant is the biggest
+    with open(os.path.join(tmp, "ceiling_lit_default_2k_info.json"), "w") as f:
+        json.dump({"tile_size_m": [4.8768, 4.8768], "emission_strength_hint": 20.0}, f)
+    for label, folder in (("fake ceiling folder", tmp),
+                          ("real ceiling folder",
+                           "D:/Blender/backrooms_pbr/ceiling_lit/default/2k")):
+        if not os.path.isdir(folder):
+            print("skipped (missing):", folder)
+            continue
+        paths = [os.path.join(folder, n) for n in sorted(os.listdir(folder))]
+        res = {os.path.basename(i["path"]).split("2k_")[-1]: i["type"]
+               for i in detect.detect_files(paths)}
+        use = [n for n, t in res.items() if t == "EMISSION"]
+        if use != ["emission.png"]:
+            bad += 1
+            print("FAIL %s: emission file used:" % label, use)
+        elif any(res[n] != "IGNORE" for n in res if n.startswith("emission_")):
+            bad += 1
+            print("FAIL %s: emission variants should be unused:" % label, res)
+        else:
+            print("%s: plain emission used, variants unused" % label)
+        hint = detect.find_info_emission_strength(folder)
+        if hint != 20.0:
+            bad += 1
+            print("FAIL %s: emission_strength_hint:" % label, hint)
+    # Missing / bad hints give None.
+    for body in ('{"tile_size_m": 1}', '{"emission_strength_hint": "20"}',
+                 '{"emission_strength_hint": 0}', '{"emission_strength_hint": true}',
+                 '{"emission_strength_hint": -3}', "not json", "[20]"):
+        with open(os.path.join(tmp, "ceiling_lit_default_2k_info.json"), "w") as f:
+            f.write(body)
+        if detect.find_info_emission_strength(tmp) is not None:
+            bad += 1
+            print("FAIL bad emission hint accepted:", body)
+    if detect.find_info_emission_strength(os.path.join(tmp, "nope")) is not None:
+        bad += 1
+        print("FAIL hint from missing folder")
+# The tie-break only looks at words after the map word (sizes do not count).
+for name, want in (("x_emission.png", []), ("x_emission_2k.png", []),
+                   ("x_emission_all_on.png", ["all", "on"]),
+                   ("x_Normal_GL.png", []), ("x_ambient_occlusion_dim.png", ["dim"])):
+    if detect.trailing_words(name) != want:
+        bad += 1
+        print("FAIL trailing_words(%s) = %s" % (name, detect.trailing_words(name)))
 sys.exit(1 if bad else 0)

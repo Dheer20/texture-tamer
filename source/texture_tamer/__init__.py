@@ -347,6 +347,9 @@ def apply_items(context, items, name, source):
         s["displacement_height"], s["displacement_midlevel"] = dinfo
     if info:
         s["info_width"], s["info_height"] = info
+    ehint = detect.find_info_emission_strength(folder) if folder else None
+    if ehint:  # the set says how bright its emission map needs to be
+        s["emission_strength"] = ehint
     var = detect.find_variation_map(folder) if folder else None
     if var:
         s["tint_path"] = var

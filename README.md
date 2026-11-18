@@ -63,7 +63,11 @@ colour (found automatically when named like `*tint*`/`*macro*` next to the set).
 ### Surface
 Normal / bump strength, **Displacement Off** by default (*Bump* = fake detail, *Real* =
 moves the surface; depth and midlevel come from the set's JSON when present), AO and
-emission strength, **Subdivide for Displacement**.
+emission strength (starts at the JSON's `emission_strength_hint` when the set has one,
+else 1), **Subdivide for Displacement**.
+If a set has several emission maps (`..._emission`, `..._emission_all_on`,
+`..._emission_dim`), the one named plainly `..._emission` is used and the others wait under
+**Unused Files**.
 
 ### Layouts
 The gear icon in the panel header opens the add-on's preferences:
